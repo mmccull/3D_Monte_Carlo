@@ -11,7 +11,7 @@ void init_positions(float **, int, float);
 float total_pair_energy(float **, int, float);
 float lennard_jones(float *, float *, float);
 
-static float kB = 1.9872041; // actually R
+static float kB = 1.9872041E-3; // actually R in units of kcal/mol/K
 static float eps = 0.210849;    // units of kcal/mol
 static float sigma = 3.345;  // units of angstroms
 static float sigma6 = 1400.80193382; // units of angstroms^6
@@ -46,6 +46,7 @@ int main() {
 	// read config data from standard in
 	read_cfg_file(&nAtoms, &temp, &box, trajFileName, logFileName, &nIter, &deltaWrite, &deltaX);
 	kBT = kB*temp;
+	printf("kB*T=%f\n",kBT);
 
 	// allocate coordinate array
 	coord = (float**) malloc(nAtoms*sizeof(float*));
@@ -80,7 +81,7 @@ int main() {
 		newEnergy = total_pair_energy(coord,nAtoms,box);
 
 		deltaE = newEnergy-energy;
-		if (exp(-deltaE/kBT)>rand()/((float) RAND_MAX)) {
+		if (exp(-deltaE/kBT)> (rand()/((float) RAND_MAX))) {
 			energy = newEnergy;
 			acceptedMoves++;
 			// check to see if we need to wrap
@@ -221,6 +222,8 @@ void read_cfg_file(int *nAtoms, float *temp, float *box, char *trajFileName, cha
 			*nIter = atoi(string_secondword(buffer));
 		} else if (strncmp(firstWord,"deltaWrite",10)==0) {
 			*deltaWrite = atoi(string_secondword(buffer));
+		} else if (strncmp(firstWord,"temperature",11)==0) {
+			*temp = atof(string_secondword(buffer));
 		} else if (strncmp(firstWord,"rcut",4)==0) {
 			*rCut = atof(string_secondword(buffer));
 		} else if (strncmp(firstWord,"box",3)==0) {
@@ -240,6 +243,7 @@ void read_cfg_file(int *nAtoms, float *temp, float *box, char *trajFileName, cha
 	printf("Trajectory file: %s\n",trajFileName);
 	printf("log file: %s\n",logFileName);
 	printf("nAtoms: %d\n",*nAtoms);
+	printf("Temperature: %f\n",*temp);
 	printf("nIter: %d\n",*nIter);
 	printf("deltaWrite: %d\n",*deltaWrite);
 	printf("box dimension: %f\n", *box);
