@@ -80,7 +80,7 @@ int main() {
 		newEnergy = total_pair_energy(coord,nAtoms,box);
 
 		deltaE = newEnergy-energy;
-		if (exp(-deltaE/kBT)>rand()) {
+		if (exp(-deltaE/kBT)>rand()/((float) RAND_MAX)) {
 			energy = newEnergy;
 			acceptedMoves++;
 			// check to see if we need to wrap
