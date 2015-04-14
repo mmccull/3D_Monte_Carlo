@@ -1,6 +1,7 @@
 
 
 CXX = g++
+CC = gcc
 LAPACK = /Users/mmccull/lib
 OPTS = -O3 -ftree-vectorize
 
