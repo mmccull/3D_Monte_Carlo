@@ -224,8 +224,8 @@ void read_cfg_file(int *nAtoms, float *temp, float *box, char *trajFileName, cha
 			*deltaWrite = atoi(string_secondword(buffer));
 		} else if (strncmp(firstWord,"temperature",11)==0) {
 			*temp = atof(string_secondword(buffer));
-		} else if (strncmp(firstWord,"rcut",4)==0) {
-			*rCut = atof(string_secondword(buffer));
+//		} else if (strncmp(firstWord,"rcut",4)==0) {
+//			*rCut = atof(string_secondword(buffer));
 		} else if (strncmp(firstWord,"box",3)==0) {
 			*box = atof(string_secondword(buffer));
 		} else if (strncmp(firstWord,"deltaX",6)==0) {
@@ -248,7 +248,7 @@ void read_cfg_file(int *nAtoms, float *temp, float *box, char *trajFileName, cha
 	printf("deltaWrite: %d\n",*deltaWrite);
 	printf("box dimension: %f\n", *box);
 	printf("deltaX (MC translation): %f\n", *deltaX);
-	printf("cutoff: %f\n",*rCut);
+//	printf("cutoff: %f\n",*rCut);
 
 
 }
