@@ -5,43 +5,54 @@
 #include "stringlib.h"
 
 // Declare Subroutines
-void read_cfg_file(int *, float *, float *, char *, char *, int *, int *, float *);
-void write_xyz_step(float **, int, int, float, FILE *);
-void init_positions(float **, int, float);
-float total_pair_energy(float **, int, float);
-float lennard_jones(float *, float *, float);
+void read_cfg_file(int *, double *, double *, char *, char *, int *, int *, double *);
+void write_xyz_step(double **, int, int, double, FILE *);
+void init_positions(double **, int, double *);
+double total_pair_energy(double **, int, double);
+double lennard_jones(double *, double *, double);
 
-static float kB = 1.9872041E-3; // actually R in units of kcal/mol/K
-static float eps = 0.210849;    // units of kcal/mol
-static float sigma = 3.345;  // units of angstroms
-static float sigma6 = 1400.80193382; // units of angstroms^6
+static double kB = 1.9872041E-3; // actually R in units of kcal/mol/K
+static double eps = 0.210849;    // units of kcal/mol
+static double sigma = 3.345;  // units of angstroms
+static double sigma6 = 1400.80193382; // units of angstroms^6
 
 //Main Program
 int main() {
 
 	int nAtoms;     // Number of atoms
-	float temp;     // temperature
-	float box;      // cubic box size
+	double temp;     // temperature
+	double box;      // cubic box size
 	int nIter;      // number of MC iterations
 	int deltaWrite; // how often to write coordinates and log info in MC
-	float deltaX;   // how big to make the translation attempt
+	double deltaX;   // how big to make the translation attempt
 
 	char trajFileName[1024];  // output trajectory file name
 	char logFileName[1024];   // log file name
 
-	float **coord;  // coordinates of particles
+	double **coord;  // coordinates of particles
 
 	int i, j, k;    // genereic indeces
 	int iter;       // MC iteration
 	int atom;       // MC selected atom
-	float energy;   // energy of the system
-	float delta[3]; // added position
-	float kBT;
-	float newEnergy;
-	float deltaE;
+	double energy;   // energy of the system
+	double delta[3]; // added position
+	double kBT;
+	double newEnergy;
+	double deltaE;
 	int acceptedMoves;
 		
-	FILE *xyzOut;
+	FILE *xyzOut;      // trajectory output file
+	FILE *logOut;      // log output file
+
+	time_t startTime;   // initial clock time
+	time_t stopTime;    // final clock time
+	time_t routineStartTime; // start time for a routine
+	time_t routineStopTime;  // stop time for a routine
+	double timeSpent; // amount of time in seconds 
+	double energyCalcTime; // 
+
+	// initialize job timing
+	startTime = clock();
 
 	// read config data from standard in
 	read_cfg_file(&nAtoms, &temp, &box, trajFileName, logFileName, &nIter, &deltaWrite, &deltaX);
@@ -49,24 +60,29 @@ int main() {
 	printf("kB*T=%f\n",kBT);
 
 	// allocate coordinate array
-	coord = (float**) malloc(nAtoms*sizeof(float*));
+	coord = (double**) malloc(nAtoms*sizeof(double*));
 	for (i=0;i<nAtoms;i++) {
-		coord[i] = (float*) malloc(3*sizeof(float));
+		coord[i] = (double*) malloc(3*sizeof(double));
 	}
 	// initialize particle positions
-	init_positions(coord,nAtoms,box);
+	init_positions(coord,nAtoms,&box);
 
 	// Compute energy of system
 	energy = total_pair_energy(coord,nAtoms,box);
 
 	xyzOut = fopen(trajFileName,"w");
+	logOut = fopen(logFileName,"w");
 
+	energyCalcTime=0;
 	// Perform MC loop
 	for(iter=0;iter<nIter;iter++) {
 		if (iter%deltaWrite==0) {
-			printf("Step: %10d Energy:%50.5f\n", iter, energy);
+			fprintf(logOut,"Step: %10d Energy:%50.5f\n", iter, energy);
 			// write positions
 			write_xyz_step(coord,nAtoms,iter, box, xyzOut);
+			// flush buffers
+			fflush(xyzOut);
+			fflush(logOut);
 		}
 
 		// randomly choose a particle to move
@@ -74,14 +90,18 @@ int main() {
 
 		// compute random translation
 		for (i=0;i<3;i++) {
-			delta[i] = deltaX*(rand()/((float) RAND_MAX)-0.5);
+			delta[i] = deltaX*(rand()/((double) RAND_MAX)-0.5);
 			coord[atom][i] += delta[i];
 		}
 		// compute new energy
+		routineStartTime=clock();
 		newEnergy = total_pair_energy(coord,nAtoms,box);
+		routineStopTime=clock();
+		energyCalcTime += (double)(routineStopTime-routineStartTime)/CLOCKS_PER_SEC;
 
 		deltaE = newEnergy-energy;
-		if (exp(-deltaE/kBT)> (rand()/((float) RAND_MAX))) {
+//		fprintf(logOut,"atom: %d deltaE: %f\n",atom,deltaE);
+		if (exp(-deltaE/kBT)> (rand()/((double) RAND_MAX))) {
 			energy = newEnergy;
 			acceptedMoves++;
 			// check to see if we need to wrap
@@ -102,17 +122,26 @@ int main() {
 	}
 
 	fclose(xyzOut);
+	// average energy routine calc time
+	printf("Total time to compute energies (seconds): %f\n",energyCalcTime);
+	energyCalcTime /= (double)(nIter);
+	printf("Average time to compute energies (seconds): %f\n",energyCalcTime);
+
+	// time job
+	stopTime = clock();
+	timeSpent = (double)(stopTime-startTime)/CLOCKS_PER_SEC;
+	printf("Total job time (seconds): %f\n",timeSpent);
 
 }
 
 // Subroutines
 //
 
-float total_pair_energy(float **coord, int nAtoms, float box) {
+double total_pair_energy(double **coord, int nAtoms, double box) {
 
 	int atom1;
 	int atom2;
-	float energy;
+	double energy;
 
 	energy=0;
 	for (atom1=0;atom1<nAtoms-1;atom1++) {
@@ -129,12 +158,12 @@ float total_pair_energy(float **coord, int nAtoms, float box) {
 
 }
 
-float lennard_jones(float *pos1, float *pos2, float box) {
+double lennard_jones(double *pos1, double *pos2, double box) {
 
-	float dist2;
-	float temp;
-	float energy;
-	float dist6;
+	double dist2;
+	double temp;
+	double energy;
+	double dist6;
 	int i;
 
 	// compute the distance between the atoms
@@ -158,23 +187,25 @@ float lennard_jones(float *pos1, float *pos2, float box) {
 
 }
 
-void init_positions(float **coord, int nAtoms, float box) {
+void init_positions(double **coord, int nAtoms, double *box) {
 
-	float cbrtf(float x); // cube root function
+	double cbrt(double x); // cube root function
 	int iBoxD;            // integer box dimension
-	float fBoxD;          // float box dimension
+	double fBoxD;          // double box dimension
 
 	int x, y, z;
-	float xPos,yPos,zPos;
+	double xPos,yPos,zPos;
 	int atomCount;
 
 	// determine how many bins to divide the box into
-	iBoxD = (int) cbrtf((float) nAtoms);
+	iBoxD = (int) cbrt((double) nAtoms);
 	if (iBoxD*iBoxD*iBoxD < nAtoms) {
 		iBoxD++;
 	}
 	// determine the size of the bins
-	fBoxD = box/( (float) iBoxD);
+	fBoxD = 3.55;
+	*box = iBoxD*fBoxD;
+	printf("box dimension: %f\n", *box);
 
 	// add a particle in each box
 	atomCount=0;
@@ -203,13 +234,13 @@ void init_positions(float **coord, int nAtoms, float box) {
 	}
 }		
 
-void read_cfg_file(int *nAtoms, float *temp, float *box, char *trajFileName, char *logFileName, int *nIter, int *deltaWrite, float *deltaX) {
+void read_cfg_file(int *nAtoms, double *temp, double *box, char *trajFileName, char *logFileName, int *nIter, int *deltaWrite, double *deltaX) {
 
 	char buffer[1024];
 	char tempBuffer[1024];
 	char check[15];
 	char *firstWord;
-	float *rCut;
+	double *rCut;
 
 	while (fgets(buffer,1024,stdin) != NULL) {
 
@@ -226,8 +257,8 @@ void read_cfg_file(int *nAtoms, float *temp, float *box, char *trajFileName, cha
 			*temp = atof(string_secondword(buffer));
 //		} else if (strncmp(firstWord,"rcut",4)==0) {
 //			*rCut = atof(string_secondword(buffer));
-		} else if (strncmp(firstWord,"box",3)==0) {
-			*box = atof(string_secondword(buffer));
+//		} else if (strncmp(firstWord,"box",3)==0) {
+//			*box = atof(string_secondword(buffer));
 		} else if (strncmp(firstWord,"deltaX",6)==0) {
 			*deltaX = atof(string_secondword(buffer));
 		} else if (strncmp(firstWord,"trajFile",8)==0) {
@@ -246,7 +277,7 @@ void read_cfg_file(int *nAtoms, float *temp, float *box, char *trajFileName, cha
 	printf("Temperature: %f\n",*temp);
 	printf("nIter: %d\n",*nIter);
 	printf("deltaWrite: %d\n",*deltaWrite);
-	printf("box dimension: %f\n", *box);
+//	printf("box dimension: %f\n", *box);
 	printf("deltaX (MC translation): %f\n", *deltaX);
 //	printf("cutoff: %f\n",*rCut);
 
@@ -254,7 +285,7 @@ void read_cfg_file(int *nAtoms, float *temp, float *box, char *trajFileName, cha
 }
 
 
-void write_xyz_step(float **coord, int nAtoms, int iter, float box, FILE *xyzOut) {
+void write_xyz_step(double **coord, int nAtoms, int iter, double box, FILE *xyzOut) {
 
 	int i, j, k;
 	int atom;

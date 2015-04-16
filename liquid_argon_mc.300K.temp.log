@@ -1,0 +1,19 @@
+Trajectory file: liquid_argon_300K.xyz
+log file: liquid_argon_20K.log
+nAtoms: 216
+Temperature: 300.000000
+nIter: 10000
+deltaWrite: 1000
+box dimension: 21.000000
+deltaX (MC translation): 1.000000
+kB*T=0.596161
+Step:          0 Energy:                                        -247.90842
+Step:       1000 Energy:                                        -172.54996
+Step:       2000 Energy:                                        -166.21408
+Step:       3000 Energy:                                        -163.72672
+Step:       4000 Energy:                                        -174.31548
+Step:       5000 Energy:                                        -185.60141
+Step:       6000 Energy:                                        -198.13060
+Step:       7000 Energy:                                        -193.74220
+Step:       8000 Energy:                                        -182.32294
+Step:       9000 Energy:                                        -188.97401
